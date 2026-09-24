@@ -272,10 +272,10 @@ def arctic(
     d2=None,
     anchor_idx1=None,
     anchor_idx2=None,
+    epsilon=0.8,
+    epsilon_delta=None,
+    alpha=1.0,
     n_iter=500,
-    match_threshold=0.8,
-    edge_threshold=None,
-    degenerate_tol=1.0,
     early_stop=np.inf,
     use_anchor=True,
     verbose=False
@@ -294,12 +294,12 @@ def arctic(
         Indices of anchor points in X and Y (if None, will be estimated)
     n_iter : int
         Number of iterations (max number of triangles to evaluate)
-    match_threshold : float
+    epsilon : float
         Minimum distance after transformation for two points to match (in meters)
-    edge_threshold : float or None
+    epsilon_delta : float or None
         Optional relaxed threshold for anchor distance consistency (in meters).
-        If None, set to match_threshold.
-    degenerate_tol : float between 0 and 1
+        If None, set to epsilon.
+    alpha : float between 0 and 1
         Tolerance for degeneracy check
 
     Returns
@@ -313,8 +313,8 @@ def arctic(
 
     N, M = len(X), len(Y)
 
-    if edge_threshold is None:
-        edge_threshold = match_threshold
+    if epsilon_delta is None:
+        epsilon_delta = epsilon
 
     # --------------------------------------------------
     # Anchor indices
@@ -346,7 +346,7 @@ def arctic(
 
             e_anchor = abs(d1[i] - d2[j])
 
-            if e_anchor <= edge_threshold:
+            if e_anchor <= epsilon_delta:
                 candidate_pairs.append((i, j))
 
     if len(candidate_pairs) < 2:
@@ -372,14 +372,14 @@ def arctic(
                 continue
 
             # Degeneracy check
-            if is_triangle_ambiguous(d1[i], d1[k], DX[i, k], tol=degenerate_tol):
+            if is_triangle_ambiguous(d1[i], d1[k], DX[i, k], tol=alpha):
                 continue
-            if is_triangle_ambiguous(d2[j], d2[l], DY[j, l], tol=degenerate_tol):
+            if is_triangle_ambiguous(d2[j], d2[l], DY[j, l], tol=alpha):
                 continue
 
             # Compute triangle error
             e3 = abs(DX[i, k] - DY[j, l])
-            if e3 > edge_threshold:
+            if e3 > epsilon_delta:
                 continue
 
             e1 = abs(d1[i] - d2[j])
@@ -412,7 +412,7 @@ def arctic(
     cost = np.empty((N, M))
     
     # Find candidate matches in Y based on anchor distance consistency
-    candidate_js = [np.where(np.abs(d1[i] - d2) <= edge_threshold)[0] for i in range(N)]
+    candidate_js = [np.where(np.abs(d1[i] - d2) <= epsilon_delta)[0] for i in range(N)]
     
     max_iter = min(n_iter, len(triangle_pairs))
     step = 0
@@ -458,7 +458,7 @@ def arctic(
 
             dists = np.linalg.norm(Y[js] - X_trans[i], axis=1)
 
-            valid = dists < match_threshold
+            valid = dists < epsilon
             if np.any(valid):
                 valid_rows[i] = True
                 cost[i, js[valid]] = dists[valid]
@@ -487,7 +487,7 @@ def arctic(
         for r, c in zip(row_ind, col_ind):            
 
             # Skip matches with cost above the threshold
-            if reduced_cost[r, c] >= match_threshold:
+            if reduced_cost[r, c] >= epsilon:
                 continue
             
             matches.append((rows_reduced[r], cols_reduced[c]))
@@ -512,7 +512,7 @@ def arctic(
             Y_in = np.array([Y[jj] for _, jj in matches])
 
             # Degeneracy check before updating the best model
-            if (not is_degenerate(X_in, tol=degenerate_tol) and not is_degenerate(Y_in, tol=degenerate_tol)):
+            if (not is_degenerate(X_in, tol=alpha) and not is_degenerate(Y_in, tol=alpha)):
                 best_matches = matches
                 best_residuals = residuals.copy()
                 best_X_in = X_in
