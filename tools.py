@@ -4,7 +4,7 @@ logging.basicConfig(level=logging.INFO)
 import pyroomacoustics as pra
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-
+import arctic
 
 
 
@@ -230,7 +230,6 @@ def generate_point_clouds(
     t1,
     R2,
     t2,
-    fs=48000,
     max_order_ism=5,
     sigma_noise=0.3,
     base_ratio_1=0.05,
@@ -742,7 +741,7 @@ def plot_transform_comparison(R1, R2, t1, t2, labels=None, scale=1.0):
 
 
 
-def compute_metrics(R21, t21, R21_true, t21_true):
+def compute_metrics(R21, R21_true, t21, t21_true):
     """
     Compute metrics for the estimated relative transformation.
 
@@ -802,7 +801,7 @@ def compute_metrics(R21, t21, R21_true, t21_true):
 
 
 
-def compute_performance(R21, R21_true, t21, t21_true, matches, matches_true):
+def print_performance(R21, R21_true, t21, t21_true, matches, matches_true):
     """
     Show performance metrics for estimated relative transformation.
 
@@ -815,7 +814,7 @@ def compute_performance(R21, R21_true, t21, t21_true, matches, matches_true):
         matches_true: Ground truth matches
     """
 
-    metrics = compute_metrics(R21, t21, R21_true, t21_true)
+    metrics = compute_metrics(R21, R21_true, t21, t21_true)
 
     # Main metrics
     print("PERFORMANCE METRICS")
@@ -827,3 +826,110 @@ def compute_performance(R21, R21_true, t21, t21_true, matches, matches_true):
     # Matches
     print(f"    Number of matches found:                  {len(matches)} out of {len(matches_true)} possible matches")
     print(f"    Number of correct matches:                {sum(1 for (i, j) in matches if (i, j) in matches_true)}")
+
+
+
+
+
+def compute_metrics_multi(data, geodesic_distance_max=10, euclidean_distance_error_max=0.5):
+    """
+    Compute a metric from the raw experiment data.
+    """
+
+    geodesic_distances = np.asarray(data["geodesic_distances"])
+    angular_errors = np.asarray(data["angular_errors"])
+    euclidean_distance_errors = np.asarray(data["euclidean_distance_errors"])
+    inter_array_distance_errors = np.asarray(data["inter_array_distance_errors"])
+
+    nb_matches = np.asarray(data["nb_matches"])
+    matches_precisions = np.asarray(data["matches_precisions"]) if data["matches_precisions"] is not None else None
+    matches_recalls = np.asarray(data["matches_recalls"]) if data["matches_recalls"] is not None else None
+
+
+    nb_rooms = data["nb_rooms"]
+
+    # Compute alignment statistics
+    nb_correct_alignments = np.sum((geodesic_distances < geodesic_distance_max) & (euclidean_distance_errors < euclidean_distance_error_max))
+    correct_alignments_ratio = nb_correct_alignments / nb_rooms
+
+    nb_incorrect_alignments = nb_rooms - nb_correct_alignments
+    incorrect_alignments_ratio = nb_incorrect_alignments / nb_rooms
+
+    nb_failure_alignments = np.sum(np.isnan(geodesic_distances))
+    failure_alignments_ratio = nb_failure_alignments / nb_rooms
+
+    nb_flipped_alignments = np.sum((geodesic_distances > 180-geodesic_distance_max))
+    flipped_alignments_ratio = nb_flipped_alignments / nb_rooms
+
+    nb_wrong_alignments = nb_rooms - nb_correct_alignments - nb_failure_alignments - nb_flipped_alignments
+    wrong_alignments_ratio = nb_wrong_alignments / nb_rooms
+
+    nb_matches_mean = np.nanmean(nb_matches) if nb_matches.size > 0 else None
+    matches_precision_mean = np.nanmean(matches_precisions) if matches_precisions is not None and matches_precisions.size > 0 else None
+    matches_recall_mean = np.nanmean(matches_recalls) if matches_recalls is not None and matches_recalls.size > 0 else None
+
+    metrics = {
+        # Alignments statistics
+        "nb_correct_alignments": nb_correct_alignments,
+        "nb_incorrect_alignments": nb_incorrect_alignments,
+        "nb_failure_alignments": nb_failure_alignments,
+        "nb_flipped_alignments": nb_flipped_alignments,
+        "nb_wrong_alignments": nb_wrong_alignments,
+        "correct_alignments_ratio": correct_alignments_ratio,
+        "incorrect_alignments_ratio": incorrect_alignments_ratio,
+        "failure_alignments_ratio": failure_alignments_ratio,
+        "flipped_alignments_ratio": flipped_alignments_ratio,
+        "wrong_alignments_ratio": wrong_alignments_ratio,
+
+        # Averaged metrics
+        "geodesic_distance_mean": np.nanmean(geodesic_distances),
+        "angular_error_mean": np.nanmean(angular_errors),
+        "euclidean_distance_error_mean": np.nanmean(euclidean_distance_errors),
+        "inter_array_distance_error_mean": np.nanmean(inter_array_distance_errors),
+
+        "geodesic_distance_mean_correct_alignments": np.mean(geodesic_distances[(geodesic_distances < geodesic_distance_max) & (euclidean_distance_errors < euclidean_distance_error_max)]),
+        "angular_error_mean_correct_alignments": np.mean(angular_errors[(geodesic_distances < geodesic_distance_max) & (euclidean_distance_errors < euclidean_distance_error_max)]),
+        "euclidean_distance_error_mean_correct_alignments": np.mean(euclidean_distance_errors[(geodesic_distances < geodesic_distance_max) & (euclidean_distance_errors < euclidean_distance_error_max)]),
+        "inter_array_distance_error_mean_correct_alignments": np.mean(inter_array_distance_errors[(geodesic_distances < geodesic_distance_max) & (euclidean_distance_errors < euclidean_distance_error_max)]),
+
+        # Matches statistics
+        "nb_matches_mean": nb_matches_mean,
+        "matches_precision_mean": matches_precision_mean,
+        "matches_recall_mean": matches_recall_mean,
+    }
+
+    return metrics
+
+
+
+
+def print_performance_multi(data, geodesic_distance_max=10, euclidean_distance_error_max=0.5):
+    """
+    Show performance metrics for estimated relative transformation,
+    for multiple experiments (e.g., multiple rooms).
+
+    Parameters:
+        data: dict containing lists of metrics for multiple experiments
+        geodesic_distance_max: threshold for considering an alignment correct (in degrees)
+        euclidean_distance_error_max: threshold for considering an alignment correct (in meters)
+    """
+
+    metrics = compute_metrics_multi(data, geodesic_distance_max, euclidean_distance_error_max)
+
+    # Main metrics
+    print(f"PERFORMANCE METRICS ON {data['nb_rooms']} ROOMS")
+    print(f"    Number of correct alignments:             {metrics['nb_correct_alignments']} ({metrics['correct_alignments_ratio']*100:.2f}%)")
+    print(f"    Number of incorrect alignments:           {metrics['nb_incorrect_alignments']} ({metrics['incorrect_alignments_ratio']*100:.2f}%)")
+    print(f"    Number of flipped alignments:             {metrics['nb_flipped_alignments']} ({metrics['flipped_alignments_ratio']*100:.2f}%)")
+
+    print(f"    Average number of matches:                {metrics['nb_matches_mean']:.2f}")
+    if metrics['matches_precision_mean'] is not None and metrics['matches_recall_mean'] is not None:
+        print(f"    Average match precision:                  {metrics['matches_precision_mean']*100:.2f}%")
+        print(f"    Average match recall:                     {metrics['matches_recall_mean']*100:.2f}%")
+
+    print(f"\nFor the {metrics['nb_correct_alignments']} correct alignments only (geodesic distance < {geodesic_distance_max}°, euclidean distance error < {euclidean_distance_error_max} m):")
+
+    print(f"    Average Geodesic Distance:               {metrics['geodesic_distance_mean_correct_alignments']:.3f}°")
+    print(f"    Average Angular Error:                   {metrics['angular_error_mean_correct_alignments']:.3f}°")
+    print(f"    Average Inter-Array Distance Error:      {metrics['inter_array_distance_error_mean_correct_alignments']:.3f} m")
+    print(f"    Average Euclidean Distance Error:        {metrics['euclidean_distance_error_mean_correct_alignments']:.3f} m")
