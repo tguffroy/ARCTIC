@@ -24,6 +24,7 @@ def closest_point_to_origin(points):
 
 
 
+
 def is_triangle_ambiguous(ab, ac, bc, tol=0.1):
     """
     Check if a triangle is ambiguous (collinear or isosceles).
@@ -51,7 +52,6 @@ def is_triangle_ambiguous(ab, ac, bc, tol=0.1):
     e_iso = min(abs(ab - ac), abs(ab - bc), abs(ac - bc)) / L
     if e_iso < threshold:
         return True
-    return False
 
 
 def is_degenerate(points, tol=0.1):
