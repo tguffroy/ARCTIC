@@ -285,15 +285,12 @@ def arctic(
 
     Parameters
     ----------
-
     X, Y : arrays (N,3), (M,3)
         Point clouds
     d1, d2 : arrays (N,), (M,)
         Radial distances to anchor points (if None, will be computed)
-    anchor_idx1, anchor_idx2 : int
+    anchor_idx1, anchor_idx2 : int or None
         Indices of anchor points in X and Y (if None, will be estimated)
-    n_iter : int
-        Number of iterations (max number of triangles to evaluate)
     epsilon : float
         Minimum distance after transformation for two points to match (in meters)
     epsilon_delta : float or None
@@ -301,6 +298,15 @@ def arctic(
         If None, set to epsilon.
     alpha : float between 0 and 1
         Tolerance for degeneracy check
+    n_iter : int
+        Number of iterations (max number of triangles to evaluate)
+    early_stop : int
+        Stop after this many iterations without improvement
+    use_anchor : bool
+        If True, the final estimated translation is computed from the anchor point
+        If False, the final estimated translation is computed from the centroids of the matched points
+    verbose : bool
+        If True, print progress information
 
     Returns
     -------
@@ -308,7 +314,9 @@ def arctic(
         Estimated rotation matrix
     best_t : (3,) array
         Estimated translation vector
-    best_inliers : list of (i,j) index pairs of inliers
+    best_matches : list of (i,j) index pairs of matches
+    best_triangle : tuple of two lists of 3 indices
+        Indices of the vertices of the best triangle-pair in X and Y
     """
 
     N, M = len(X), len(Y)
