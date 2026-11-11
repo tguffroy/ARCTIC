@@ -1,6 +1,6 @@
 # ARCTIC - Anchor-based Registration using Congruent Triangle Consensus
 
-This repository provides the source code of the ARCTIC algorithm, presented in the paper: *Self-Localization of Distributed Microphone Arrays Using One Source and Acoustic Reflections*, submitted at ICASSP 2027.
+This repository provides the source code of the ARCTIC algorithm, presented in the paper: *Self-Localization of Distributed Microphone Arrays Using One Source and Acoustic Reflections*, submitted at ICASSP 2027. The paper is available on ArXiv at [https://arxiv.org/abs/2610.41547](https://arxiv.org/abs/2610.41547).
 
 
 ![](rsc/arctic_animation.gif)
@@ -56,7 +56,19 @@ Usage examples are provided in the [notebook](arctic_examples.ipynb).
 
 ## Citation
 
-Please cite our work using the BibTeX entry from the ArXiv paper. The paper will be available soon.
+Please cite our work using the BibTeX entry from the ArXiv paper:
+
+```
+@misc{guffroy2026self,
+      title={Self-Localization of Distributed Microphone Arrays Using One Source and Acoustic Reflections}, 
+      author={Thomas Guffroy and Jean-Daniel Pascal Prieto and Cédric Foy and Antoine Deleforge},
+      year={2026},
+      eprint={2610.41547},
+      archivePrefix={arXiv},
+      primaryClass={cs.SD},
+      url={https://arxiv.org/abs/2610.41547}, 
+}
+```
 
 
 
